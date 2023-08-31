@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:nagn_2/blocs/home/home_bloc.dart';
 import 'package:nagn_2/ui/widget/segmented_widget.dart';
 
 class HomePage extends StatelessWidget {
@@ -6,6 +11,7 @@ class HomePage extends StatelessWidget {
   final PageController _pageController = PageController();
   @override
   Widget build(BuildContext context) {
+    context.read<HomeBloc>().add(HomeInit());
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.only(top: 15.0, bottom: 15.0),
@@ -13,7 +19,17 @@ class HomePage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () async {
+                  FilePickerResult? result = await FilePicker.platform
+                      .pickFiles(
+                          type: FileType.custom, allowedExtensions: ['epub']);
+                  if (result != null) {
+                    File file = File(result.files.single.path!);
+                    if (context.mounted) {
+                      context.read<HomeBloc>().add(OnAddFile(file));
+                    }
+                  } else {}
+                },
                 icon: const Icon(Icons.add_circle_outline),
                 label: const Text("Add file")),
             Expanded(
@@ -36,11 +52,14 @@ class HomePage extends StatelessWidget {
                 ),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: SegmentedWidget(
-                    onChangeSegment: (index) => _pageController.animateToPage(
-                        index,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.bounceIn),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: SegmentedWidget(
+                      onChangeSegment: (index) => _pageController.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.bounceIn),
+                    ),
                   ),
                 )
               ],
@@ -55,7 +74,9 @@ class HomePage extends StatelessWidget {
                 Expanded(
                   flex: 1,
                   child: ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        context.read<HomeBloc>().add(OnSaveFile());
+                      },
                       icon: const Icon(Icons.save),
                       label: const Text("Save")),
                 ),
@@ -118,10 +139,11 @@ class HomePage extends StatelessWidget {
 
   _infoPage(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(left: 50, right: 50),
+      padding: const EdgeInsets.only(left: 50, right: 50),
       child: SingleChildScrollView(
         child: TapRegion(
-          onTapOutside: (event) => FocusManager.instance.primaryFocus?.unfocus(),
+          onTapOutside: (event) =>
+              FocusManager.instance.primaryFocus?.unfocus(),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -129,23 +151,16 @@ class HomePage extends StatelessWidget {
               const SizedBox(
                 height: 15,
               ),
-              TextField(
+              const TextField(
                 decoration: InputDecoration(
                     labelText: "Book title", border: OutlineInputBorder()),
               ),
               const SizedBox(
                 height: 15,
               ),
-              TextField(
+              const TextField(
                 decoration: InputDecoration(
                     labelText: "Author(s)", border: OutlineInputBorder()),
-              ),
-              const SizedBox(
-                height: 15,
-              ),
-              TextField(
-                decoration: InputDecoration(
-                    labelText: "Publisher", border: OutlineInputBorder()),
               ),
               const SizedBox(
                 height: 15,

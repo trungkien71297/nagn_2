@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:nagn_2/blocs/home/home_bloc.dart';
+import 'package:nagn_2/di.dart';
 import 'package:nagn_2/ui/page/home_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  setUp();
   runApp(const MyApp());
 }
 
@@ -19,7 +24,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       initialRoute: "/home",
-      routes: {"/home": (context) => HomePage()},
+      routes: {"/home": (context) => BlocProvider(create: (context) => getIt<HomeBloc>(), child: HomePage(),)},
     );
   }
 }
