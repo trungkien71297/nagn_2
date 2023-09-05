@@ -37,7 +37,7 @@ class _SegmentedWidgetState extends State<SegmentedWidget>
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 30,
+      width: 37,
       child: ToggleButtons(
           direction: Axis.vertical,
           onPressed: (index) {

@@ -8,7 +8,9 @@ import 'package:nagn_2/ui/widget/segmented_widget.dart';
 
 class HomePage extends StatelessWidget {
   HomePage({super.key});
+
   final PageController _pageController = PageController();
+
   @override
   Widget build(BuildContext context) {
     context.read<HomeBloc>().add(HomeInit());
@@ -18,6 +20,7 @@ class HomePage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 10,),
             ElevatedButton.icon(
                 onPressed: () async {
                   FilePickerResult? result = await FilePicker.platform
@@ -53,7 +56,7 @@ class HomePage extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.all(10.0),
                     child: SegmentedWidget(
                       onChangeSegment: (index) => _pageController.animateToPage(
                           index,
@@ -94,7 +97,8 @@ class HomePage extends StatelessWidget {
                   width: 10,
                 ),
               ],
-            )
+            ),
+            const SizedBox(height: 15,)
           ],
         ),
       ),
@@ -111,14 +115,33 @@ class HomePage extends StatelessWidget {
           child: Center(
             child: AspectRatio(
               aspectRatio: 1 / 1.6,
-              child: Container(
-                color: const Color.fromRGBO(210, 210, 210, 1),
-                child: const Center(
-                  child: Icon(
-                    Icons.menu_book_sharp,
-                    color: Colors.black45,
-                  ),
-                ),
+              child: BlocBuilder<HomeBloc, HomeState>(
+                buildWhen: (prev, current) => current is HomeGetBookInfo,
+                builder: (context, state) {
+                  if (state is HomeGetBookInfo) {
+                    return state.book.cover != null
+                        ? Image.file(state.book.cover!)
+                        : Container(
+                            color: const Color.fromRGBO(210, 210, 210, 1),
+                            child: const Center(
+                              child: Icon(
+                                Icons.menu_book_sharp,
+                                color: Colors.black45,
+                              ),
+                            ),
+                          );
+                  } else {
+                    return Container(
+                      color: const Color.fromRGBO(210, 210, 210, 1),
+                      child: const Center(
+                        child: Icon(
+                          Icons.menu_book_sharp,
+                          color: Colors.black45,
+                        ),
+                      ),
+                    );
+                  }
+                },
               ),
             ),
           ),
@@ -127,7 +150,17 @@ class HomePage extends StatelessWidget {
           height: 15,
         ),
         OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: () async {
+              FilePickerResult? result = await FilePicker.platform
+                  .pickFiles(
+                  type: FileType.custom, allowedExtensions: ["JPEG", "PNG", "GIF", "SVG"]);
+              if (result != null) {
+                File file = File(result.files.single.path!);
+                if (context.mounted) {
+                  context.read<HomeBloc>().add(OnSelectCover(file));
+                }
+              } else {}
+            },
             icon: const Icon(Icons.photo_library_outlined),
             label: const Text("Change cover")),
         const SizedBox(
@@ -151,22 +184,24 @@ class HomePage extends StatelessWidget {
               const SizedBox(
                 height: 15,
               ),
-              const TextField(
-                decoration: InputDecoration(
+              TextField(
+                controller: context.read<HomeBloc>().nameTextController,
+                decoration: const InputDecoration(
                     labelText: "Book title", border: OutlineInputBorder()),
               ),
               const SizedBox(
                 height: 15,
               ),
-              const TextField(
-                decoration: InputDecoration(
+              TextField(
+                controller: context.read<HomeBloc>().authorTextController,
+                decoration: const InputDecoration(
                     labelText: "Author(s)", border: OutlineInputBorder()),
               ),
               const SizedBox(
                 height: 15,
               ),
               TextButton.icon(
-                  onPressed: () {},
+                  onPressed: () => context.read<HomeBloc>().add(OnResetInfo()),
                   icon: const Icon(Icons.restore),
                   label: const Text("Reset Info"))
             ],
