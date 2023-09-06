@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rive/rive.dart';
 
 Text header(String text) {
   return Text(
@@ -18,3 +19,8 @@ ButtonStyle segmentedStyle = ButtonStyle(
     }),
     textStyle: const MaterialStatePropertyAll(TextStyle(color: Colors.white)),
     fixedSize: const MaterialStatePropertyAll(Size.fromHeight(30)));
+
+Widget loading = const SizedBox(
+    width: 150,
+    height: 150,
+    child: RiveAnimation.asset('assets/files/loading_animation.riv'));

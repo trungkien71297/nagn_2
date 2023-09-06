@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nagn_2/blocs/home/home_bloc.dart';
 import 'package:nagn_2/di.dart';
@@ -8,7 +7,6 @@ import 'package:nagn_2/ui/page/home_page.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   setUp();
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.leanBack);
   runApp(const MyApp());
 }
 

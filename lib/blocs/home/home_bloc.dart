@@ -9,6 +9,8 @@ import 'package:nagn_2/utils/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:xml/xml.dart';
 
+import '../../models/custom_exception.dart';
+
 part 'home_event.dart';
 part 'home_state.dart';
 
@@ -39,35 +41,97 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     on<OnSelectCover>(_onSelectCover);
   }
   _addFile(OnAddFile event, Emitter emit) async {
-    await _clearCache();
-    editFile = event.file;
-    await _extract();
-    emit(HomeGetBookInfo(book));
+    try {
+      emit(HomeLoadStatus(true, false));
+      await _clearCache();
+      editFile = event.file;
+      await _extract();
+      emit(HomeLoadStatus(false, false));
+      emit(HomeGetBookInfo(book));
+    } catch (e) {
+      emit(HomeLoadStatus(false, false));
+      emit(HomeGetFilesStatus(ProcessStatus.failed, e.toString()));
+    }
   }
 
   _saveFile(HomeEvent event, Emitter emit) async {
-    await _archive();
+    if(editFile != null) {
+      emit(HomeLoadStatus(true, true));
+      try {
+        await _saveFileOnTemp();
+        await _archive();
+        await Future.delayed(const Duration(seconds: 5));
+        emit(HomeLoadStatus(false, true));
+        emit(HomeSaveStatus(ProcessStatus.success));
+      } catch (e) {
+        emit(HomeLoadStatus(false, true));
+        emit(HomeSaveStatus(ProcessStatus.failed));
+      }
+
+    }
+  }
+
+  _saveFileOnTemp() async {
+    if(content != null) {
+      try {
+        var metadata = content!.findAllElements("metadata").first;
+        bool isUpdate = false;
+        if (book.destCover.isNotEmpty) {
+          isUpdate = true;
+          final content = await book.cover!.readAsBytes();
+          final file = File(book.srcCover);
+          file.writeAsBytesSync(content);
+        }
+
+        if (book.srcName != nameTextController.text) {
+          isUpdate = true;
+          var title = metadata.findAllElements("dc:title").first;
+          for (var attribute in title.attributes) {
+            title.removeAttribute(attribute.qualifiedName);
+          }
+          title.innerText = nameTextController.text;
+
+          var metas = metadata.findAllElements("meta");
+          for (var meta in metas) {
+            final name = meta.getAttributeNode("calibre:title_sort")?.value ?? "";
+            if (name.isNotEmpty) {
+              meta.setAttribute("content", nameTextController.text);
+            }
+          }
+        }
+
+        if (book.srcCreator != authorTextController.text) {
+          isUpdate = true;
+          var creator = metadata.findAllElements("dc:creator").first;
+          for (var attribute in creator.attributes) {
+            creator.removeAttribute(attribute.qualifiedName);
+          }
+          creator.innerText = authorTextController.text;
+        }
+
+        if (isUpdate) {
+          final file = File("$srcDir/$contentFile");
+          await file.writeAsString(content!.toXmlString());
+        }
+      } catch(e) {
+        rethrow;
+      }
+    }
   }
 
   _extract() async {
     if (editFile != null) {
       final reader = ZipFileReader();
       final tempExtract = Directory(srcDir);
-      if (kDebugMode) {
-        print(tempExtract);
-      }
       try {
         reader.open(File(editFile!.path));
         entries = await reader.entries();
-        await extractZipArchive(editFile!, tempExtract, callback: (entry, totalEntries) {
-            //TODO: Progress indicator
-        });
-        //Progress content file
+        await extractZipArchive(editFile!, tempExtract);
         await _getMetaData();
         await _getContent();
         await _getBookInfo();
       } catch (e) {
-        //TODO: Exception handler
+        rethrow;
       } finally {
         await reader.close();
       }
@@ -82,12 +146,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         await writer.create(archiveFile);
         for (var entry in entries) {
           if(!entry.isDir) {
-            //TODO: Progress
             await writer.writeFile(entry.name, File("$srcDir/${entry.name}"));
           }
         }
       } catch (e) {
-          //TODO: Exception handler
+          rethrow;
       } finally {
         await writer.close();
       }
@@ -125,13 +188,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         if (rootfiles.isNotEmpty) {
           contentFile = rootfiles.first.getAttribute(xmlPathFileAttribute) ?? "";
         } else {
-          //TODO: handle not have content file
+          throw CustomException("Can't load metadata file");
         }
       } else {
-        //TODO: handle not have metadata file
+        throw CustomException("Can't load metadata file");
       }
     } catch(ex) {
-      //TODO: handle cannot read metadata file
+      throw CustomException("Can't load metadata file");
     }
   }
 
@@ -143,13 +206,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           final fileContent = file.readAsStringSync();
           content = XmlDocument.parse(fileContent);
         } else {
-          //TODO: handle not have content file
+          throw CustomException("Can't load content file");
         }
       } catch(ex) {
-        //TODO: handle can not read content file
+        throw CustomException("Can't load content file");
       }
     } else {
-      //TODO: handle not have content file
+      throw CustomException("Can't load content file");
     }
   }
 
@@ -205,7 +268,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     book.destCreator = "";
     book.destCover = "";
     book.destName = "";
-    book.cover = null;
+    book.cover = File(book.srcCover);
     nameTextController.text = book.srcName;
     authorTextController.text = book.srcCreator;
     emitter(HomeGetBookInfo(book));
@@ -213,6 +276,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   _onSelectCover(OnSelectCover event, Emitter emitter) {
       book.cover = event.file;
+      book.destCover = event.file.path;
       emitter(HomeGetBookInfo(book));
   }
 }

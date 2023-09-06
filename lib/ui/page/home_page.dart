@@ -6,6 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nagn_2/blocs/home/home_bloc.dart';
 import 'package:nagn_2/ui/widget/segmented_widget.dart';
 
+import '../../utils/widget_util.dart';
+
 class HomePage extends StatelessWidget {
   HomePage({super.key});
 
@@ -15,92 +17,199 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     context.read<HomeBloc>().add(HomeInit());
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.only(top: 15.0, bottom: 15.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 10,),
-            ElevatedButton.icon(
-                onPressed: () async {
-                  FilePickerResult? result = await FilePicker.platform
-                      .pickFiles(
-                          type: FileType.custom, allowedExtensions: ['epub']);
-                  if (result != null) {
-                    File file = File(result.files.single.path!);
-                    if (context.mounted) {
-                      context.read<HomeBloc>().add(OnAddFile(file));
-                    }
-                  } else {}
-                },
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text("Add file")),
-            Expanded(
-                child: Stack(
-              children: [
-                Column(
-                  children: [
-                    const SizedBox(
-                      height: 10,
-                    ),
-                    Expanded(
-                      child: PageView(
-                        controller: _pageController,
-                        scrollDirection: Axis.vertical,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [_coverPage(context), _infoPage(context)],
-                      ),
-                    )
-                  ],
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: SegmentedWidget(
-                      onChangeSegment: (index) => _pageController.animateToPage(
-                          index,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.bounceIn),
-                    ),
-                  ),
-                )
-              ],
-            )),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 15.0, bottom: 15.0),
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(
-                  width: 10,
+                  height: 10,
                 ),
-                Expanded(
-                  flex: 1,
+                BlocListener<HomeBloc, HomeState>(
+                  listenWhen: (prev, current) => current is HomeGetFilesStatus,
+                  listener: (context, state) {
+                    if (state is HomeGetFilesStatus) {
+                      if (state.status == ProcessStatus.failed) {
+                        showDialog(
+                            context: context,
+                            builder: (ctx) {
+                              return AlertDialog(
+                                title: const Text(
+                                  "ERROR!",
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                                content: Text("Can not load ebook, please try again!\n${state.message}", maxLines: 2,),
+                                backgroundColor: Colors.black,
+                                icon: const Icon(
+                                    Icons.done_outline_rounded),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Text("OK"))
+                                ],
+                              );
+                            });
+                      }
+                    }
+                  },
                   child: ElevatedButton.icon(
-                      onPressed: () {
-                        context.read<HomeBloc>().add(OnSaveFile());
+                      onPressed: () async {
+                        FilePickerResult? result = await FilePicker.platform
+                            .pickFiles(
+                                type: FileType.custom,
+                                allowedExtensions: ['epub']);
+                        if (result != null) {
+                          File file = File(result.files.single.path!);
+                          if (context.mounted) {
+                            context.read<HomeBloc>().add(OnAddFile(file));
+                          }
+                        } else {}
                       },
-                      icon: const Icon(Icons.save),
-                      label: const Text("Save")),
-                ),
-                const SizedBox(
-                  width: 20,
+                      icon: const Icon(Icons.add_circle_outline),
+                      label: const Text("Add file")),
                 ),
                 Expanded(
-                  flex: 1,
-                  child: ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.save_as),
-                      label: const Text("Save as a copy")),
+                    child: Stack(
+                  children: [
+                    Column(
+                      children: [
+                        const SizedBox(
+                          height: 10,
+                        ),
+                        Expanded(
+                          child: PageView(
+                            controller: _pageController,
+                            scrollDirection: Axis.vertical,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [_coverPage(context), _infoPage(context)],
+                          ),
+                        )
+                      ],
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: SegmentedWidget(
+                          onChangeSegment: (index) =>
+                              _pageController.animateToPage(index,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.bounceIn),
+                        ),
+                      ),
+                    )
+                  ],
+                )),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 10,
+                    ),
+                    BlocListener<HomeBloc, HomeState>(
+                      listenWhen: (prev, current) => current is HomeSaveStatus,
+                      listener: (context, state) {
+                        if (state is HomeSaveStatus) {
+                          switch (state.status) {
+                            case ProcessStatus.success:
+                              showDialog(
+                                  context: context,
+                                  builder: (ctx) {
+                                    return AlertDialog(
+                                      title: const Text("SUCCESS"),
+                                      content:
+                                          const Text("Save file successfully"),
+                                      backgroundColor: Colors.black,
+                                      icon: const Icon(
+                                          Icons.done_outline_rounded),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () {},
+                                            child: const Text("Go to folder")),
+                                        TextButton(
+                                            onPressed: () {
+                                              Navigator.of(context).pop();
+                                            },
+                                            child: const Text("OK"))
+                                      ],
+                                    );
+                                  });
+                              break;
+                            case ProcessStatus.failed:
+                              showDialog(
+                                  context: context,
+                                  builder: (ctx) {
+                                    return AlertDialog(
+                                      title: const Text(
+                                        "ERROR!",
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                      content: const Text(
+                                          "Can't save file, please try again!"),
+                                      backgroundColor: Colors.black,
+                                      icon: const Icon(
+                                          Icons.done_outline_rounded),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () {
+                                              Navigator.of(context).pop();
+                                            },
+                                            child: const Text("OK"))
+                                      ],
+                                    );
+                                  });
+                              break;
+                            default:
+                              break;
+                          }
+                        }
+                      },
+                      child: ElevatedButton.icon(
+                          onPressed: () {
+
+                            context.read<HomeBloc>().add(OnSaveFile());
+                          },
+                          icon: const Icon(Icons.save_as),
+                          label: const Text("Save")),
+                    ),
+                    const SizedBox(
+                      width: 10,
+                    ),
+                  ],
                 ),
                 const SizedBox(
-                  width: 10,
-                ),
+                  height: 15,
+                )
               ],
             ),
-            const SizedBox(height: 15,)
-          ],
-        ),
+          ),
+          BlocBuilder<HomeBloc, HomeState>(
+            buildWhen: (prev, current) => current is HomeLoadStatus,
+            builder: (context, state) {
+              if (state is HomeLoadStatus) {
+                return state.isLoading
+                    ? state.isSave
+                        ? Container(
+                            color: Colors.blueGrey.withOpacity(0.3),
+                            child: Center(child: loading),
+                          )
+                        : Container(
+                            color: Colors.blueGrey.withOpacity(0.3),
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ))
+                    : Container();
+              } else {
+                return Container();
+              }
+            },
+          )
+        ],
       ),
     );
   }
@@ -151,9 +260,9 @@ class HomePage extends StatelessWidget {
         ),
         OutlinedButton.icon(
             onPressed: () async {
-              FilePickerResult? result = await FilePicker.platform
-                  .pickFiles(
-                  type: FileType.custom, allowedExtensions: ["JPEG", "PNG", "GIF", "SVG"]);
+              FilePickerResult? result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: ["JPEG", "PNG", "GIF", "SVG"]);
               if (result != null) {
                 File file = File(result.files.single.path!);
                 if (context.mounted) {
