@@ -305,6 +305,14 @@ class HomePage extends StatelessWidget {
               const SizedBox(
                 height: 15,
               ),
+              TextField(
+                controller: context.read<HomeBloc>().fileNameTextController,
+                decoration: const InputDecoration(
+                    labelText: "File name", border: OutlineInputBorder()),
+              ),
+              const SizedBox(
+                height: 15,
+              ),
               TextButton.icon(
                   onPressed: () => context.read<HomeBloc>().add(OnResetInfo()),
                   icon: const Icon(Icons.restore),

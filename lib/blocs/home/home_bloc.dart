@@ -28,6 +28,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   BookInfo book = BookInfo("", "");
   TextEditingController nameTextController = TextEditingController();
   TextEditingController authorTextController = TextEditingController();
+  TextEditingController fileNameTextController = TextEditingController();
   HomeBloc() : super(HomeInitial()) {
     // on<HomeEvent>((event, emit) {});
     on<OnAddFile>(_addFile);
@@ -47,6 +48,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(HomeLoadStatus(true, false));
       await _clearCache();
       editFile = event.file;
+      fileNameTextController.text = _getName(editFile!.path, removeExt: true);
       await _extract();
       emit(HomeLoadStatus(false, false));
       emit(HomeGetBookInfo(book));
@@ -154,16 +156,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       var encoder = ZipFileEncoder();
       try {
         encoder.zipDirectory(Directory(srcDir),
-            filename: "$saveDir/${_getName(editFile!.path)}");
+            filename: "$saveDir/${fileNameTextController.text}.epub");
       } catch (e) {
         rethrow;
       }
     }
   }
 
-  String _getName(String path) {
-    var res = path.split("/");
-    return res.last;
+  String _getName(String path, {removeExt = false}) {
+    var res = path.split("/").last;
+    if (removeExt) {
+      res = res.replaceAll('.epub', '');
+    }
+    return res;
   }
 
   _clearCache() async {
@@ -183,6 +188,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     book = BookInfo("", "");
     nameTextController.clear();
     authorTextController.clear();
+    fileNameTextController.clear();
   }
 
   _getMetaData() async {
@@ -289,6 +295,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     book.cover = book.srcCover.isNotEmpty ? File(book.srcCover) : null;
     nameTextController.text = book.srcName;
     authorTextController.text = book.srcCreator;
+    fileNameTextController.text = _getName(editFile!.path, removeExt: true);
     emitter(HomeGetBookInfo(book));
   }
 
