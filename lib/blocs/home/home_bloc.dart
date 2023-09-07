@@ -1,14 +1,14 @@
 import 'dart:io';
 
-import 'package:async_zip/async_zip.dart';
-import 'package:flutter/foundation.dart';
+import 'package:archive/archive_io.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nagn_2/models/book_info.dart';
 import 'package:nagn_2/utils/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:xml/xml.dart';
-
+import 'package:mime/mime.dart';
 import '../../models/custom_exception.dart';
 
 part 'home_event.dart';
@@ -16,13 +16,15 @@ part 'home_state.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   File? editFile;
-  List<ZipEntry> entries = [];
+  Archive? _archive;
   String tempDir = "";
   String destDir = "";
+  String saveDir = "";
   String srcDir = "";
   String metadataFile = "";
   String contentFile = "";
   XmlDocument? content;
+  XmlElement? imageElement;
   BookInfo book = BookInfo("", "");
   TextEditingController nameTextController = TextEditingController();
   TextEditingController authorTextController = TextEditingController();
@@ -49,30 +51,31 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       emit(HomeLoadStatus(false, false));
       emit(HomeGetBookInfo(book));
     } catch (e) {
+      _clearCache();
+      emit(HomeGetBookInfo(book));
       emit(HomeLoadStatus(false, false));
       emit(HomeGetFilesStatus(ProcessStatus.failed, e.toString()));
     }
   }
 
   _saveFile(HomeEvent event, Emitter emit) async {
-    if(editFile != null) {
-      emit(HomeLoadStatus(true, true));
+    if (editFile != null) {
       try {
         await _saveFileOnTemp();
-        await _archive();
+        emit(HomeLoadStatus(true, true));
+        _archiveFile();
         await Future.delayed(const Duration(seconds: 5));
         emit(HomeLoadStatus(false, true));
-        emit(HomeSaveStatus(ProcessStatus.success));
+        emit(HomeSaveStatus(ProcessStatus.success, ""));
       } catch (e) {
         emit(HomeLoadStatus(false, true));
-        emit(HomeSaveStatus(ProcessStatus.failed));
+        emit(HomeSaveStatus(ProcessStatus.failed, e.toString()));
       }
-
     }
   }
 
   _saveFileOnTemp() async {
-    if(content != null) {
+    if (content != null) {
       try {
         var metadata = content!.findAllElements("metadata").first;
         bool isUpdate = false;
@@ -81,39 +84,51 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           final content = await book.cover!.readAsBytes();
           final file = File(book.srcCover);
           file.writeAsBytesSync(content);
+          final mime = lookupMimeType(book.destCover);
+          imageElement?.setAttribute("media-type", mime);
         }
 
         if (book.srcName != nameTextController.text) {
           isUpdate = true;
           var title = metadata.findAllElements("dc:title").first;
-          for (var attribute in title.attributes) {
+
+          for (int i = title.attributes.length - 1; i >= 0; i--) {
+            final attribute = title.attributes[i];
             title.removeAttribute(attribute.qualifiedName);
           }
+
           title.innerText = nameTextController.text;
 
           var metas = metadata.findAllElements("meta");
           for (var meta in metas) {
-            final name = meta.getAttributeNode("calibre:title_sort")?.value ?? "";
+            final name =
+                meta.getAttributeNode("calibre:title_sort")?.value ?? "";
             if (name.isNotEmpty) {
               meta.setAttribute("content", nameTextController.text);
             }
           }
         }
-
         if (book.srcCreator != authorTextController.text) {
           isUpdate = true;
           var creator = metadata.findAllElements("dc:creator").first;
-          for (var attribute in creator.attributes) {
+          for (int i = creator.attributes.length - 1; i >= 0; i--) {
+            final attribute = creator.attributes[i];
             creator.removeAttribute(attribute.qualifiedName);
           }
           creator.innerText = authorTextController.text;
         }
-
         if (isUpdate) {
+          String? selectedDirectory = await FilePicker.platform
+              .getDirectoryPath(initialDirectory: editFile!.parent.path);
+          if (selectedDirectory == null) {
+            throw CustomException("Please select an directory");
+          } else {
+            saveDir = selectedDirectory;
+          }
           final file = File("$srcDir/$contentFile");
           await file.writeAsString(content!.toXmlString());
         }
-      } catch(e) {
+      } catch (e) {
         rethrow;
       }
     }
@@ -121,38 +136,27 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   _extract() async {
     if (editFile != null) {
-      final reader = ZipFileReader();
-      final tempExtract = Directory(srcDir);
       try {
-        reader.open(File(editFile!.path));
-        entries = await reader.entries();
-        await extractZipArchive(editFile!, tempExtract);
+        var bytes = editFile!.readAsBytesSync();
+        _archive = ZipDecoder().decodeBytes(bytes);
+        extractArchiveToDisk(_archive!, srcDir);
         await _getMetaData();
         await _getContent();
         await _getBookInfo();
       } catch (e) {
         rethrow;
-      } finally {
-        await reader.close();
       }
     }
   }
 
-  _archive() async {
-    if(entries.isNotEmpty) {
-      final archiveFile = File("$destDir/${_getName(editFile!.path)}");
-      final writer = ZipFileWriter();
+  _archiveFile() {
+    if (_archive != null) {
+      var encoder = ZipFileEncoder();
       try {
-        await writer.create(archiveFile);
-        for (var entry in entries) {
-          if(!entry.isDir) {
-            await writer.writeFile(entry.name, File("$srcDir/${entry.name}"));
-          }
-        }
+        encoder.zipDirectory(Directory(srcDir),
+            filename: "$saveDir/${_getName(editFile!.path)}");
       } catch (e) {
-          rethrow;
-      } finally {
-        await writer.close();
+        rethrow;
       }
     }
   }
@@ -164,36 +168,40 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   _clearCache() async {
     editFile = null;
-    entries.clear();
+    _archive = null;
     Directory src = Directory(srcDir);
     if (await src.exists()) {
       await src.delete(recursive: true);
     }
     src.create();
+    //For test
     Directory dest = Directory(destDir);
-    if(await dest.exists()) {
+    if (await dest.exists()) {
       await dest.delete(recursive: true);
     }
     dest.create();
     book = BookInfo("", "");
+    nameTextController.clear();
+    authorTextController.clear();
   }
 
   _getMetaData() async {
     try {
-      final metaFile = File("$srcDir/$DEFAULT_META_PATH");
+      final metaFile = File("$srcDir/$defaultMetadataPath");
       if (await metaFile.exists()) {
         final fileContent = metaFile.readAsStringSync();
         final xml = XmlDocument.parse(fileContent);
         final rootfiles = xml.findAllElements(xmlRootFileNode);
         if (rootfiles.isNotEmpty) {
-          contentFile = rootfiles.first.getAttribute(xmlPathFileAttribute) ?? "";
+          contentFile =
+              rootfiles.first.getAttribute(xmlPathFileAttribute) ?? "";
         } else {
           throw CustomException("Can't load metadata file");
         }
       } else {
         throw CustomException("Can't load metadata file");
       }
-    } catch(ex) {
+    } catch (ex) {
       throw CustomException("Can't load metadata file");
     }
   }
@@ -208,7 +216,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         } else {
           throw CustomException("Can't load content file");
         }
-      } catch(ex) {
+      } catch (ex) {
         throw CustomException("Can't load content file");
       }
     } else {
@@ -217,7 +225,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   _getBookInfo() async {
-    if(content != null) {
+    if (content != null) {
       var attributeCover = "";
       var metadata = content!.findAllElements("metadata").first;
       var creator = metadata.findAllElements("dc:creator");
@@ -230,7 +238,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         book.srcName = title.first.innerText;
         nameTextController.text = book.srcName;
       }
-      for (var item in  metadata.findAllElements("meta")) {
+      for (var item in metadata.findAllElements("meta")) {
         if (item.getAttribute("name") == "cover") {
           attributeCover = item.getAttribute("content") ?? "";
         }
@@ -238,18 +246,28 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       var manifest = content!.findAllElements("manifest").first;
       var cover = "";
       if (attributeCover.isNotEmpty) {
-        for (var item in  manifest.findAllElements("item")) {
+        for (var item in manifest.findAllElements("item")) {
           if (item.getAttribute("id") == attributeCover) {
-            final pref = contentFile.lastIndexOf("/") > -1 ? contentFile.substring(0, contentFile.lastIndexOf("/")) : "";
-            final absolutePath = pref.isNotEmpty ? "$pref/${item.getAttribute("href") ?? ""}" : item.getAttribute("href") ?? "";
+            imageElement = item;
+            final pref = contentFile.lastIndexOf("/") > -1
+                ? contentFile.substring(0, contentFile.lastIndexOf("/"))
+                : "";
+            final absolutePath = pref.isNotEmpty
+                ? "$pref/${item.getAttribute("href") ?? ""}"
+                : item.getAttribute("href") ?? "";
             cover = "$srcDir/$absolutePath";
           }
         }
       } else {
-        for (var item in  manifest.findAllElements("item")) {
+        for (var item in manifest.findAllElements("item")) {
           if (item.getAttribute("properties") == xmlCoverAttribute) {
-            final pref = contentFile.lastIndexOf("/") > -1 ? contentFile.substring(0, contentFile.lastIndexOf("/")) : "";
-            final absolutePath = pref.isNotEmpty ? "$pref/${item.getAttribute("href") ?? ""}" : item.getAttribute("href") ?? "";
+            imageElement = item;
+            final pref = contentFile.lastIndexOf("/") > -1
+                ? contentFile.substring(0, contentFile.lastIndexOf("/"))
+                : "";
+            final absolutePath = pref.isNotEmpty
+                ? "$pref/${item.getAttribute("href") ?? ""}"
+                : item.getAttribute("href") ?? "";
             cover = "$srcDir/$absolutePath";
           }
         }
@@ -268,15 +286,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     book.destCreator = "";
     book.destCover = "";
     book.destName = "";
-    book.cover = File(book.srcCover);
+    book.cover = book.srcCover.isNotEmpty ? File(book.srcCover) : null;
     nameTextController.text = book.srcName;
     authorTextController.text = book.srcCreator;
     emitter(HomeGetBookInfo(book));
   }
 
   _onSelectCover(OnSelectCover event, Emitter emitter) {
-      book.cover = event.file;
-      book.destCover = event.file.path;
-      emitter(HomeGetBookInfo(book));
+    book.cover = event.file;
+    book.destCover = event.file.path;
+    emitter(HomeGetBookInfo(book));
   }
 }

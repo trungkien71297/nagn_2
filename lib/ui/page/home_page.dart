@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nagn_2/blocs/home/home_bloc.dart';
 import 'package:nagn_2/ui/widget/segmented_widget.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../utils/widget_util.dart';
 
@@ -40,10 +42,12 @@ class HomePage extends StatelessWidget {
                                   "ERROR!",
                                   style: TextStyle(color: Colors.red),
                                 ),
-                                content: Text("Can not load ebook, please try again!\n${state.message}", maxLines: 2,),
+                                content: Text(
+                                  "Can't load ebook, please try again!\n${state.message}",
+                                  maxLines: 2,
+                                ),
                                 backgroundColor: Colors.black,
-                                icon: const Icon(
-                                    Icons.done_outline_rounded),
+                                icon: const Icon(Icons.error_outline_outlined),
                                 actions: [
                                   TextButton(
                                       onPressed: () {
@@ -58,16 +62,19 @@ class HomePage extends StatelessWidget {
                   },
                   child: ElevatedButton.icon(
                       onPressed: () async {
-                        FilePickerResult? result = await FilePicker.platform
-                            .pickFiles(
-                                type: FileType.custom,
-                                allowedExtensions: ['epub']);
-                        if (result != null) {
-                          File file = File(result.files.single.path!);
-                          if (context.mounted) {
-                            context.read<HomeBloc>().add(OnAddFile(file));
-                          }
-                        } else {}
+                        final res = await _checkPermission(context);
+                        if (res) {
+                          FilePickerResult? result = await FilePicker.platform
+                              .pickFiles(
+                                  type: FileType.custom,
+                                  allowedExtensions: ['epub']);
+                          if (result != null) {
+                            File file = File(result.files.single.path!);
+                            if (context.mounted) {
+                              context.read<HomeBloc>().add(OnAddFile(file));
+                            }
+                          } else {}
+                        }
                       },
                       icon: const Icon(Icons.add_circle_outline),
                       label: const Text("Add file")),
@@ -128,9 +135,11 @@ class HomePage extends StatelessWidget {
                                       icon: const Icon(
                                           Icons.done_outline_rounded),
                                       actions: [
-                                        TextButton(
-                                            onPressed: () {},
-                                            child: const Text("Go to folder")),
+                                        //TODO: Do later
+
+                                        // TextButton(
+                                        //     onPressed: () {},
+                                        //     child: const Text("Go to folder")),
                                         TextButton(
                                             onPressed: () {
                                               Navigator.of(context).pop();
@@ -144,24 +153,8 @@ class HomePage extends StatelessWidget {
                               showDialog(
                                   context: context,
                                   builder: (ctx) {
-                                    return AlertDialog(
-                                      title: const Text(
-                                        "ERROR!",
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                      content: const Text(
-                                          "Can't save file, please try again!"),
-                                      backgroundColor: Colors.black,
-                                      icon: const Icon(
-                                          Icons.done_outline_rounded),
-                                      actions: [
-                                        TextButton(
-                                            onPressed: () {
-                                              Navigator.of(context).pop();
-                                            },
-                                            child: const Text("OK"))
-                                      ],
-                                    );
+                                    return errorDialog(context,
+                                        "Can't save file. try again!\n${state.message}");
                                   });
                               break;
                             default:
@@ -170,9 +163,12 @@ class HomePage extends StatelessWidget {
                         }
                       },
                       child: ElevatedButton.icon(
-                          onPressed: () {
-
-                            context.read<HomeBloc>().add(OnSaveFile());
+                          onPressed: () async {
+                            final res = await _checkPermission(context);
+                            if (res) {
+                              // ignore: use_build_context_synchronously
+                              context.read<HomeBloc>().add(OnSaveFile());
+                            }
                           },
                           icon: const Icon(Icons.save_as),
                           label: const Text("Save")),
@@ -318,5 +314,58 @@ class HomePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<bool> _checkPermission(context) async {
+    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+    AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+    if (Platform.isIOS ||
+        (Platform.isAndroid && androidInfo.version.sdkInt < 33)) {
+      var status = await Permission.camera.status;
+      if (status.isPermanentlyDenied) {
+        showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+                  title: const Text(
+                    "ERROR!",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  content: const Text("Please provide storage permission"),
+                  backgroundColor: Colors.black,
+                  icon: const Icon(
+                    Icons.error_outline_outlined,
+                    color: Colors.red,
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () {
+                          openAppSettings();
+                        },
+                        child: const Text("Open setting")),
+                    TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text("OK"))
+                  ],
+                ));
+
+        return false;
+      }
+
+      if (status.isDenied) {
+        if (await Permission.storage.request().isGranted) {
+          return true;
+        }
+        showDialog(
+            context: context,
+            builder: (context) =>
+                errorDialog(context, "Please provide storage permission"));
+        return false;
+      }
+      return true;
+    } else {
+      return false;
+    }
   }
 }

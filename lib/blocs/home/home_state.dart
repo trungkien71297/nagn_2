@@ -17,16 +17,15 @@ final class HomeLoadStatus extends HomeState {
 }
 
 final class HomeGetFilesStatus extends HomeState {
-  final ProcessStatus status ;
+  final ProcessStatus status;
   final String message;
   HomeGetFilesStatus(this.status, this.message);
 }
 
 final class HomeSaveStatus extends HomeState {
   final ProcessStatus status;
-  HomeSaveStatus(this.status);
+  final String message;
+  HomeSaveStatus(this.status, this.message);
 }
 
-enum ProcessStatus {
-  failed, success
-}
+enum ProcessStatus { failed, success }

@@ -24,3 +24,25 @@ Widget loading = const SizedBox(
     width: 150,
     height: 150,
     child: RiveAnimation.asset('assets/files/loading_animation.riv'));
+
+AlertDialog errorDialog(BuildContext context, String message) {
+  return AlertDialog(
+    title: const Text(
+      "ERROR!",
+      style: TextStyle(color: Colors.red),
+    ),
+    content: Text(message),
+    backgroundColor: Colors.black,
+    icon: const Icon(
+      Icons.error_outline_outlined,
+      color: Colors.red,
+    ),
+    actions: [
+      TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text("OK"))
+    ],
+  );
+}
