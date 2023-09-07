@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nagn_2/blocs/home/home_bloc.dart';
+import 'package:nagn_2/ui/widget/ad_banner.dart';
 import 'package:nagn_2/ui/widget/segmented_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -111,6 +112,10 @@ class HomePage extends StatelessWidget {
                     )
                   ],
                 )),
+                const AdBanner(),
+                const SizedBox(
+                  height: 5,
+                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -166,8 +171,9 @@ class HomePage extends StatelessWidget {
                           onPressed: () async {
                             final res = await _checkPermission(context);
                             if (res) {
-                              // ignore: use_build_context_synchronously
-                              context.read<HomeBloc>().add(OnSaveFile());
+                              if (context.mounted) {
+                                context.read<HomeBloc>().add(OnSaveFile());
+                              }
                             }
                           },
                           icon: const Icon(Icons.save_as),
@@ -256,15 +262,17 @@ class HomePage extends StatelessWidget {
         ),
         OutlinedButton.icon(
             onPressed: () async {
-              FilePickerResult? result = await FilePicker.platform.pickFiles(
-                  type: FileType.custom,
-                  allowedExtensions: ["JPEG", "PNG", "GIF", "SVG"]);
-              if (result != null) {
-                File file = File(result.files.single.path!);
-                if (context.mounted) {
-                  context.read<HomeBloc>().add(OnSelectCover(file));
-                }
-              } else {}
+              if (context.read<HomeBloc>().editFile != null) {
+                FilePickerResult? result = await FilePicker.platform.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ["JPEG", "PNG", "GIF", "SVG"]);
+                if (result != null) {
+                  File file = File(result.files.single.path!);
+                  if (context.mounted) {
+                    context.read<HomeBloc>().add(OnSelectCover(file));
+                  }
+                } else {}
+              }
             },
             icon: const Icon(Icons.photo_library_outlined),
             label: const Text("Change cover")),
@@ -329,7 +337,7 @@ class HomePage extends StatelessWidget {
     AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
     if (Platform.isIOS ||
         (Platform.isAndroid && androidInfo.version.sdkInt < 33)) {
-      var status = await Permission.camera.status;
+      var status = await Permission.storage.status;
       if (status.isPermanentlyDenied) {
         showDialog(
             context: context,
@@ -373,7 +381,48 @@ class HomePage extends StatelessWidget {
       }
       return true;
     } else {
-      return false;
+      var status = await Permission.manageExternalStorage.status;
+      if (status.isPermanentlyDenied) {
+        showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+                  title: const Text(
+                    "ERROR!",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  content: const Text("Please provide storage permission"),
+                  backgroundColor: Colors.black,
+                  icon: const Icon(
+                    Icons.error_outline_outlined,
+                    color: Colors.red,
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () {
+                          openAppSettings();
+                        },
+                        child: const Text("Open setting")),
+                    TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text("OK"))
+                  ],
+                ));
+        return false;
+      }
+
+      if (status.isDenied) {
+        if (await Permission.manageExternalStorage.request().isGranted) {
+          return true;
+        }
+        showDialog(
+            context: context,
+            builder: (context) =>
+                errorDialog(context, "Please provide storage permission"));
+        return false;
+      }
+      return true;
     }
   }
 }

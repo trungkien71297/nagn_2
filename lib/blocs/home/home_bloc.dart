@@ -66,7 +66,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         await _saveFileOnTemp();
         emit(HomeLoadStatus(true, true));
         _archiveFile();
-        await Future.delayed(const Duration(seconds: 5));
+        await Future.delayed(const Duration(seconds: 3));
         emit(HomeLoadStatus(false, true));
         emit(HomeSaveStatus(ProcessStatus.success, ""));
       } catch (e) {

@@ -20,6 +20,7 @@ dependencies:
   device_info_plus: ^9.0.3
   mime: ^1.0.4
   archive: ^3.3.8
+  google_mobile_ads: ^3.0.0
 
 dev_dependencies:
   flutter_test:
