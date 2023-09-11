@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:nagn_2/utils/ad_helper.dart';
@@ -24,7 +25,9 @@ class _AdBannerState extends State<AdBanner> {
                 });
               },
               onAdFailedToLoad: (ad, err) {
-                print('Failed to load a banner ad: ${err.message}');
+                if (kDebugMode) {
+                  print('Failed to load a banner ad: ${err.message}');
+                }
                 ad.dispose();
               },
             ),

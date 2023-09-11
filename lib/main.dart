@@ -9,9 +9,9 @@ import 'package:nagn_2/ui/page/splash_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   MobileAds.instance.initialize();
-  // RequestConfiguration configuration =
-  //     RequestConfiguration(testDeviceIds: ['30E815CD1E8D3F02F8402FDE4797BE29']);
-  // MobileAds.instance.updateRequestConfiguration(configuration);
+  RequestConfiguration configuration =
+      RequestConfiguration(testDeviceIds: ['30E815CD1E8D3F02F8402FDE4797BE29']);
+  MobileAds.instance.updateRequestConfiguration(configuration);
   setUp();
   runApp(const MyApp());
 }

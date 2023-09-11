@@ -1,11 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:nagn_2/di.dart';
 import 'package:nagn_2/models/book_info.dart';
 import 'package:nagn_2/utils/constants.dart';
+import 'package:nagn_2/utils/method_channel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:xml/xml.dart';
 import 'package:mime/mime.dart';
@@ -29,6 +31,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   TextEditingController nameTextController = TextEditingController();
   TextEditingController authorTextController = TextEditingController();
   TextEditingController fileNameTextController = TextEditingController();
+  final StreamController<HomeLoadStatus> _isLoadingStream =
+      StreamController.broadcast();
+  Stream<HomeLoadStatus> get isLoading => _isLoadingStream.stream;
+
+  final StreamController<HomeSaveStatus> _saveStream =
+      StreamController.broadcast();
+  Stream<HomeSaveStatus> get isSaved => _saveStream.stream;
   HomeBloc() : super(HomeInitial()) {
     // on<HomeEvent>((event, emit) {});
     on<OnAddFile>(_addFile);
@@ -45,33 +54,44 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
   _addFile(OnAddFile event, Emitter emit) async {
     try {
-      emit(HomeLoadStatus(true, false));
+      _isLoadingStream.sink.add(HomeLoadStatus(true, false));
       await _clearCache();
       editFile = event.file;
       fileNameTextController.text = _getName(editFile!.path, removeExt: true);
       await _extract();
-      emit(HomeLoadStatus(false, false));
+      _isLoadingStream.sink.add(HomeLoadStatus(false, false));
       emit(HomeGetBookInfo(book));
     } catch (e) {
       _clearCache();
       emit(HomeGetBookInfo(book));
-      emit(HomeLoadStatus(false, false));
+      _isLoadingStream.sink.add(HomeLoadStatus(false, false));
       emit(HomeGetFilesStatus(ProcessStatus.failed, e.toString()));
     }
   }
 
-  _saveFile(HomeEvent event, Emitter emit) async {
+  _saveFile(HomeEvent event, Emitter emitter) async {
     if (editFile != null) {
+      _isLoadingStream.sink.add(HomeLoadStatus(true, true));
+      MethodChannelExecutor.channel.setMethodCallHandler((call) async {
+        if (call.method == 'SAVE_FILE_RESULT') {
+          final result = call.arguments['result'] as bool;
+          if (result) {
+            _isLoadingStream.sink.add(HomeLoadStatus(false, true));
+            _saveStream.sink.add(HomeSaveStatus(ProcessStatus.success, ""));
+          } else {
+            _isLoadingStream.sink.add(HomeLoadStatus(false, true));
+            _saveStream.sink
+                .add(HomeSaveStatus(ProcessStatus.failed, "Cannot save file"));
+          }
+        }
+      });
       try {
         await _saveFileOnTemp();
-        emit(HomeLoadStatus(true, true));
         _archiveFile();
-        await Future.delayed(const Duration(seconds: 3));
-        emit(HomeLoadStatus(false, true));
-        emit(HomeSaveStatus(ProcessStatus.success, ""));
       } catch (e) {
-        emit(HomeLoadStatus(false, true));
-        emit(HomeSaveStatus(ProcessStatus.failed, e.toString()));
+        _isLoadingStream.sink.add(HomeLoadStatus(false, true));
+        _saveStream.sink
+            .add(HomeSaveStatus(ProcessStatus.failed, e.toString()));
       }
     }
   }
@@ -120,13 +140,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           creator.innerText = authorTextController.text;
         }
         if (isUpdate) {
-          String? selectedDirectory = await FilePicker.platform
-              .getDirectoryPath(initialDirectory: editFile!.parent.path);
-          if (selectedDirectory == null) {
-            throw CustomException("Please select an directory");
-          } else {
-            saveDir = selectedDirectory;
-          }
           final file = File("$srcDir/$contentFile");
           await file.writeAsString(content!.toXmlString());
         }
@@ -156,7 +169,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       var encoder = ZipFileEncoder();
       try {
         encoder.zipDirectory(Directory(srcDir),
-            filename: "$saveDir/${fileNameTextController.text}.epub");
+            filename: "$destDir/${fileNameTextController.text}.epub");
+        getIt<MethodChannelExecutor>()
+            .saveFile('$destDir/${fileNameTextController.text}.epub');
       } catch (e) {
         rethrow;
       }

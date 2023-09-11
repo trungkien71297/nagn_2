@@ -123,61 +123,62 @@ class HomePage extends StatelessWidget {
                     const SizedBox(
                       width: 10,
                     ),
-                    BlocListener<HomeBloc, HomeState>(
-                      listenWhen: (prev, current) => current is HomeSaveStatus,
-                      listener: (context, state) {
-                        if (state is HomeSaveStatus) {
+                    StreamBuilder(
+                      stream: context.read<HomeBloc>().isSaved,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData) {
+                          final state = snapshot.data!;
+                          Widget? dialog;
                           switch (state.status) {
                             case ProcessStatus.success:
-                              showDialog(
-                                  context: context,
-                                  builder: (ctx) {
-                                    return AlertDialog(
-                                      title: const Text("SUCCESS"),
-                                      content:
-                                          const Text("Save file successfully"),
-                                      backgroundColor: Colors.black,
-                                      icon: const Icon(
-                                          Icons.done_outline_rounded),
-                                      actions: [
-                                        //TODO: Do later
+                              dialog = AlertDialog(
+                                title: const Text("SUCCESS"),
+                                content: const Text("Save file successfully"),
+                                backgroundColor: Colors.black,
+                                icon: const Icon(Icons.done_outline_rounded),
+                                actions: [
+                                  //TODO: Do later
 
-                                        // TextButton(
-                                        //     onPressed: () {},
-                                        //     child: const Text("Go to folder")),
-                                        TextButton(
-                                            onPressed: () {
-                                              Navigator.of(context).pop();
-                                            },
-                                            child: const Text("OK"))
-                                      ],
-                                    );
-                                  });
+                                  // TextButton(
+                                  //     onPressed: () {},
+                                  //     child: const Text("Go to folder")),
+                                  TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Text("OK"))
+                                ],
+                              );
                               break;
                             case ProcessStatus.failed:
-                              showDialog(
-                                  context: context,
-                                  builder: (ctx) {
-                                    return errorDialog(context,
-                                        "Can't save file. try again!\n${state.message}");
-                                  });
+                              dialog = errorDialog(context,
+                                  "Can't save file. try again!\n${state.message}");
                               break;
                             default:
                               break;
                           }
+                          if (dialog != null) {
+                            WidgetsBinding.instance
+                                .addPostFrameCallback((timeStamp) {
+                              showDialog(
+                                context: context,
+                                builder: (context) => dialog!,
+                              );
+                            });
+                          }
                         }
-                      },
-                      child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final res = await _checkPermission(context);
-                            if (res) {
-                              if (context.mounted) {
-                                context.read<HomeBloc>().add(OnSaveFile());
+                        return ElevatedButton.icon(
+                            onPressed: () async {
+                              final res = await _checkPermission(context);
+                              if (res) {
+                                if (context.mounted) {
+                                  context.read<HomeBloc>().add(OnSaveFile());
+                                }
                               }
-                            }
-                          },
-                          icon: const Icon(Icons.save_as),
-                          label: const Text("Save")),
+                            },
+                            icon: const Icon(Icons.save_as),
+                            label: const Text("Save"));
+                      },
                     ),
                     const SizedBox(
                       width: 10,
@@ -190,25 +191,23 @@ class HomePage extends StatelessWidget {
               ],
             ),
           ),
-          BlocBuilder<HomeBloc, HomeState>(
-            buildWhen: (prev, current) => current is HomeLoadStatus,
-            builder: (context, state) {
-              if (state is HomeLoadStatus) {
-                return state.isLoading
-                    ? state.isSave
-                        ? Container(
-                            color: Colors.blueGrey.withOpacity(0.3),
-                            child: Center(child: loading),
-                          )
-                        : Container(
-                            color: Colors.blueGrey.withOpacity(0.3),
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ))
-                    : Container();
-              } else {
-                return Container();
-              }
+          StreamBuilder(
+            stream: context.read<HomeBloc>().isLoading,
+            initialData: HomeLoadStatus(false, false),
+            builder: (context, snapshot) {
+              final state = snapshot.data!;
+              return state.isLoading
+                  ? state.isSave
+                      ? Container(
+                          color: Colors.blueGrey.withOpacity(0.3),
+                          child: Center(child: loading),
+                        )
+                      : Container(
+                          color: Colors.blueGrey.withOpacity(0.3),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ))
+                  : Container();
             },
           )
         ],
@@ -380,48 +379,49 @@ class HomePage extends StatelessWidget {
         return false;
       }
       return true;
-    } else {
-      var status = await Permission.manageExternalStorage.status;
-      if (status.isPermanentlyDenied) {
-        showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-                  title: const Text(
-                    "ERROR!",
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  content: const Text("Please provide storage permission"),
-                  backgroundColor: Colors.black,
-                  icon: const Icon(
-                    Icons.error_outline_outlined,
-                    color: Colors.red,
-                  ),
-                  actions: [
-                    TextButton(
-                        onPressed: () {
-                          openAppSettings();
-                        },
-                        child: const Text("Open setting")),
-                    TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text("OK"))
-                  ],
-                ));
-        return false;
-      }
-
-      if (status.isDenied) {
-        if (await Permission.manageExternalStorage.request().isGranted) {
-          return true;
-        }
-        showDialog(
-            context: context,
-            builder: (context) =>
-                errorDialog(context, "Please provide storage permission"));
-        return false;
-      }
+    }
+    else {
+      // var status = await Permission.manageExternalStorage.status;
+      // if (status.isPermanentlyDenied) {
+      //   showDialog(
+      //       context: context,
+      //       builder: (context) => AlertDialog(
+      //             title: const Text(
+      //               "ERROR!",
+      //               style: TextStyle(color: Colors.red),
+      //             ),
+      //             content: const Text("Please provide storage permission"),
+      //             backgroundColor: Colors.black,
+      //             icon: const Icon(
+      //               Icons.error_outline_outlined,
+      //               color: Colors.red,
+      //             ),
+      //             actions: [
+      //               TextButton(
+      //                   onPressed: () {
+      //                     openAppSettings();
+      //                   },
+      //                   child: const Text("Open setting")),
+      //               TextButton(
+      //                   onPressed: () {
+      //                     Navigator.of(context).pop();
+      //                   },
+      //                   child: const Text("OK"))
+      //             ],
+      //           ));
+      //   return false;
+      // }
+      //
+      // if (status.isDenied) {
+      //   if (await Permission.manageExternalStorage.request().isGranted) {
+      //     return true;
+      //   }
+      //   showDialog(
+      //       context: context,
+      //       builder: (context) =>
+      //           errorDialog(context, "Please provide storage permission"));
+      //   return false;
+      // }
       return true;
     }
   }
