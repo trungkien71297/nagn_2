@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:xml/xml.dart';
 import 'package:mime/mime.dart';
 import '../../models/custom_exception.dart';
-
+import 'package:path/path.dart' as p;
 part 'home_event.dart';
 part 'home_state.dart';
 
@@ -105,9 +105,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           isUpdate = true;
           final content = await book.cover!.readAsBytes();
           final file = File(book.srcCover);
+          var oldName = p.basename(file.path);
+          var newName = p.basename(book.destCover);
+          await file.delete();
           file.writeAsBytesSync(content);
           final mime = lookupMimeType(book.destCover);
           imageElement?.setAttribute("media-type", mime);
+          var a = imageElement?.getAttribute("href") ?? '';
+          a.replaceAll(oldName, newName);
+          imageElement?.setAttribute("href", a);
         }
 
         if (book.srcName != nameTextController.text) {

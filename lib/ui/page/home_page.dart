@@ -32,7 +32,8 @@ class HomePage extends StatelessWidget {
                     height: 10,
                   ),
                   BlocListener<HomeBloc, HomeState>(
-                    listenWhen: (prev, current) => current is HomeGetFilesStatus,
+                    listenWhen: (prev, current) =>
+                        current is HomeGetFilesStatus,
                     listener: (context, state) {
                       if (state is HomeGetFilesStatus) {
                         if (state.status == ProcessStatus.failed) {
@@ -49,7 +50,8 @@ class HomePage extends StatelessWidget {
                                     maxLines: 2,
                                   ),
                                   backgroundColor: Colors.black,
-                                  icon: const Icon(Icons.error_outline_outlined),
+                                  icon:
+                                      const Icon(Icons.error_outline_outlined),
                                   actions: [
                                     TextButton(
                                         onPressed: () {
@@ -94,7 +96,10 @@ class HomePage extends StatelessWidget {
                               controller: _pageController,
                               scrollDirection: Axis.vertical,
                               physics: const NeverScrollableScrollPhysics(),
-                              children: [_coverPage(context), _infoPage(context)],
+                              children: [
+                                _coverPage(context),
+                                _infoPage(context)
+                              ],
                             ),
                           )
                         ],
@@ -113,7 +118,6 @@ class HomePage extends StatelessWidget {
                       )
                     ],
                   )),
-                  const AdBanner(),
                   const SizedBox(
                     height: 5,
                   ),
@@ -325,7 +329,7 @@ class HomePage extends StatelessWidget {
               TextButton.icon(
                   onPressed: () => context.read<HomeBloc>().add(OnResetInfo()),
                   icon: const Icon(Icons.restore),
-                  label: const Text("Reset Info"))
+                  label: const Text("Reset Info")),
             ],
           ),
         ),
@@ -381,8 +385,7 @@ class HomePage extends StatelessWidget {
         return false;
       }
       return true;
-    }
-    else {
+    } else {
       // var status = await Permission.manageExternalStorage.status;
       // if (status.isPermanentlyDenied) {
       //   showDialog(
