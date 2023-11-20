@@ -72,12 +72,12 @@ class HomePage extends StatelessWidget {
                                 .pickFiles(
                                     type: FileType.custom,
                                     allowedExtensions: ['epub']);
-                            if (result != null) {
-                              File file = File(result.files.single.path!);
+                            if (result != null && result.paths.first != null) {
+                              File file = File(result.paths.first!);
                               if (context.mounted) {
                                 context.read<HomeBloc>().add(OnAddFile(file));
                               }
-                            } else {}
+                            }
                           }
                         },
                         icon: const Icon(Icons.add_circle_outline),
@@ -118,6 +118,7 @@ class HomePage extends StatelessWidget {
                       )
                     ],
                   )),
+                  const AdBanner(),
                   const SizedBox(
                     height: 5,
                   ),
@@ -416,9 +417,11 @@ class HomePage extends StatelessWidget {
       //           ));
       //   return false;
       // }
-      //
+
       // if (status.isDenied) {
-      //   if (await Permission.manageExternalStorage.request().isGranted) {
+      //   if (await Permission.manageExternalStorage.request().isGranted &&
+      //       await Permission.accessMediaLocation.request().isGranted &&
+      //       await Permission.storage.request().isGranted) {
       //     return true;
       //   }
       //   showDialog(

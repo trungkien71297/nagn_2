@@ -45,6 +45,7 @@ class MainActivity: FlutterActivity() {
         val path: String = call.argument<String>("file") ?: ""
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
         intent.type = "application/epub+zip"
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
         intent.putExtra(Intent.EXTRA_TITLE, getName(path))
         tmpSave = path
         startActivityForResult(intent, 2)

@@ -55,6 +55,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   _addFile(OnAddFile event, Emitter emit) async {
     try {
       _isLoadingStream.sink.add(HomeLoadStatus(true, false));
+      emit(HomeGetBookInfo(BookInfo("", "")));
       await _clearCache();
       editFile = event.file;
       fileNameTextController.text = _getName(editFile!.path, removeExt: true);
@@ -160,6 +161,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       try {
         var bytes = editFile!.readAsBytesSync();
         _archive = ZipDecoder().decodeBytes(bytes);
+        for (ArchiveFile a in _archive?.files ?? []) {
+          if (a.name.endsWith('/')) {
+            a.isFile = false;
+          }
+        }
         extractArchiveToDisk(_archive!, srcDir);
         await _getMetaData();
         await _getContent();
@@ -199,13 +205,13 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     if (await src.exists()) {
       await src.delete(recursive: true);
     }
-    src.create();
+    src.createSync();
     //For test
     Directory dest = Directory(destDir);
     if (await dest.exists()) {
       await dest.delete(recursive: true);
     }
-    dest.create();
+    dest.createSync();
     book = BookInfo("", "");
     nameTextController.clear();
     authorTextController.clear();
