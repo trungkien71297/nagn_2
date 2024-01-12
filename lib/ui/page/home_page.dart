@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nagn_2/blocs/home/home_bloc.dart';
-import 'package:nagn_2/ui/widget/ad_banner.dart';
 import 'package:nagn_2/ui/widget/segmented_widget.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -118,7 +117,6 @@ class HomePage extends StatelessWidget {
                       )
                     ],
                   )),
-                  const AdBanner(),
                   const SizedBox(
                     height: 5,
                   ),
