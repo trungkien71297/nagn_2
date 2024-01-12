@@ -15,8 +15,4 @@ An app helps change metadata of .epub file: Title, Author, Cover.
 <img src="screenshots/Screenshot_20240112-084825.png" width="47%"/> <img src="screenshots/Screenshot_20240112-084830.png" width="47%"/>
 <img src="screenshots/Screenshot_20240112-084836.png" width="47%"/>
 
-### Results
-
-<img src="screenshots/Screenshot_20240112-085241.png" width="47%"/> <img src="screenshots/Screenshot_20240112-085255.png" width="47%"/>
-
 
